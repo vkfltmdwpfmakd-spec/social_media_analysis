@@ -1,0 +1,36 @@
+FROM bitnami/spark:3.5
+
+USER root
+
+# 필요한 시스템 패키지 및 빌드 도구 설치
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    wget \
+    python3-dev \
+    g++ \
+    git \
+    git-lfs \
+    && apt-get autoremove -yqq --purge \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python 라이브러리 설치
+COPY requirements-spark.txt /tmp/requirements-spark.txt
+
+# pip, setuptools, wheel을 최신 버전으로 강제 업데이트/재설치
+# 그리고 requirements-spark.txt의 라이브러리 설치
+RUN python -m pip install --upgrade --force-reinstall pip setuptools wheel && \
+    python -m pip install --no-cache-dir -r /tmp/requirements-spark.txt
+
+# fastText 언어 감지 모델 다운로드
+RUN mkdir -p /opt/bitnami/spark/models && \
+    wget -O /opt/bitnami/spark/models/lid.176.bin https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin
+
+# Hugging Face 모델 캐시 디렉토리 설정 및 감성 분석 모델들 사전 다운로드
+ENV HF_HOME=/opt/bitnami/spark/hf_models_cache
+RUN mkdir -p ${HF_HOME} && \
+    git config --global --add safe.directory /opt/bitnami/spark/hf_models_cache && \
+    git clone https://huggingface.co/Copycats/koelectra-base-v3-generalized-sentiment-analysis ${HF_HOME}/Copycats_koelectra-base-v3-generalized-sentiment-analysis && \
+    git clone https://huggingface.co/distilbert-base-uncased-finetuned-sst-2-english ${HF_HOME}/distilbert-base-uncased-finetuned-sst-2-english
+
+# USER 1001 # 이 라인을 제거합니다.

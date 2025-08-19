@@ -1,0 +1,159 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    networks:
+      - social_media_network
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    networks:
+      - social_media_network
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+
+  kafka-topic-creator:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka-topic-creator
+    networks:
+      - social_media_network
+    depends_on:
+      - kafka
+    command: >
+      bash -c "
+        echo 'Waiting for Kafka to be ready...' &&
+        cub kafka-ready -b kafka:9092 1 30 &&
+        echo 'Kafka is ready!' &&
+        kafka-topics --create --topic reddit-stream --partitions 1 --replication-factor 1 --if-not-exists --bootstrap-server kafka:9092
+      "
+    restart: "no"
+
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: namenode
+    restart: always
+    networks:
+      - social_media_network
+    volumes:
+      - hadoop_namenode:/hadoop/dfs/name
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+      - "8020:8020"
+    environment:
+      - CLUSTER_NAME=test
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
+      - HDFS_CONF_dfs_permissions_enabled=false
+    healthcheck:
+      test: ["CMD", "hdfs", "dfsadmin", "-safemode", "get"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode
+    restart: always
+    networks:
+      - social_media_network
+    depends_on:
+      - namenode
+    volumes:
+      - hadoop_datanode:/hadoop/dfs/data
+    environment:
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
+    healthcheck:
+      test: ["CMD", "hdfs", "dfsadmin", "-Dfs.defaultFS=hdfs://namenode:8020", "-report"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  spark-master:
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
+    container_name: spark-master
+    networks:
+      - social_media_network
+    volumes:
+      - ./scripts:/opt/bitnami/spark/scripts
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    environment:
+      - SPARK_MODE=master
+
+  spark-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
+    container_name: spark-worker
+    networks:
+      - social_media_network
+    depends_on:
+      - spark-master
+    volumes:
+      - ./scripts:/opt/bitnami/spark/scripts
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+
+  reddit-producer:
+    build: .
+    container_name: reddit-producer
+    networks:
+      - social_media_network
+    depends_on:
+      kafka-topic-creator:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    volumes:
+      - ./scripts:/opt/airflow/scripts
+      - ./config:/opt/airflow/config
+    command: python /opt/airflow/scripts/reddit_producer.py
+    restart: always
+
+  spark-streaming-analyzer:
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
+    container_name: spark-streaming-analyzer
+    networks:
+      - social_media_network
+    depends_on:
+      kafka-topic-creator:
+        condition: service_completed_successfully
+      spark-master:
+        condition: service_started
+      namenode:
+        condition: service_healthy
+    volumes:
+      - ./scripts:/opt/bitnami/spark/scripts
+      - ./config:/opt/bitnami/spark/config
+      - ./requirements-spark.txt:/tmp/requirements-spark.txt
+    user: root
+    environment:
+      - HF_HOME=/tmp/huggingface_cache
+    command: /opt/bitnami/spark/scripts/run_analyzer.sh
+    restart: always
+
+volumes:
+  hadoop_namenode:
+  hadoop_datanode:
+
+networks:
+  social_media_network:

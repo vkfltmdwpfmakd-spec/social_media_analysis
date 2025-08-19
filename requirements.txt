@@ -1,0 +1,47 @@
+apache-airflow==2.8.1
+apache-airflow-providers-docker==3.9.0
+pyspark==3.5.1
+kafka-python==2.0.2
+praw==7.7.0
+
+# 감성 분석 API 고도화
+openai==1.12.0  # OpenAI GPT API
+aiohttp==3.9.3  # 비동기 HTTP 클라이언트
+asyncio-throttle==1.0.2  # API 요청 제한
+
+# 기존 감성 분석 모델 (폴백용)
+transformers==4.38.2
+torch==2.2.1
+sentencepiece==0.2.0
+accelerate==0.27.2
+fasttext==0.9.2 # 언어 감지 라이브러리
+
+# 성능 최적화
+cachetools==5.3.2  # 캐싱
+redis==5.0.1  # Redis 캐시 (선택적)
+ujson==5.9.0  # 빠른 JSON 처리
+
+# 시각화 대시보드
+streamlit==1.32.0
+pandas
+pyarrow==16.0.0
+hdfs==2.7.0
+plotly==5.18.0  # 인터랙티브 차트
+
+# 데이터 검증 및 품질
+pydantic==2.6.1  # 데이터 검증
+great-expectations==0.18.8  # 데이터 품질 검사
+
+# 모니터링 및 로깅
+prometheus-client==0.19.0  # 메트릭 수집
+structlog==24.1.0  # 구조화된 로깅
+
+# 보안
+cryptography==42.0.3  # 암호화
+python-jose[cryptography]==3.3.0  # JWT 토큰
+
+# 개발 도구 (선택적)
+black==24.2.0  # 코드 포맷터
+flake8==7.0.0  # 린터
+pytest==8.0.2  # 테스트 프레임워크
+bandit==1.7.7  # 보안 스캔

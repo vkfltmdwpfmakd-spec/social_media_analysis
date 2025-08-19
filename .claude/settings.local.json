@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker restart:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker exec:*)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_press_key"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

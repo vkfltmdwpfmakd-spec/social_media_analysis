@@ -1,0 +1,16 @@
+FROM apache/airflow:2.8.1-python3.9
+
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends     build-essential     wget     && apt-get autoremove -yqq --purge     && apt-get clean     && rm -rf /var/lib/apt/lists/*
+
+USER airflow
+COPY requirements.txt /requirements.txt
+RUN pip install --no-cache-dir -r /requirements.txt
+RUN pip install streamlit
+
+# fastText 언어 감지 모델 다운로드
+RUN mkdir -p /opt/airflow/models && \
+    wget -O /opt/airflow/models/lid.176.bin https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin
+
+# 스크립트 파일을 이미지에 복사
+COPY scripts/ /opt/airflow/scripts/
