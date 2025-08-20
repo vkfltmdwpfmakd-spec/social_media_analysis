@@ -1,97 +1,132 @@
-# 실시간 소셜 미디어 감성 분석 파이프라인 (v2)
+# 실시간 소셜 미디어 감성 분석 파이프라인
 
-이 프로젝트는 Reddit API를 통해 실시간으로 데이터를 수집하고, 다국어(한국어/영어) 감성 분석을 수행하여 HDFS에 저장 및 시각화하는 데이터 파이프라인입니다. v2에서는 설정 중앙화, 테스트 코드 추가, 코드 리팩토링을 통해 안정성과 유지보수성을 대폭 향상했습니다.
+Reddit API에서 실시간으로 데이터를 수집해서 감성 분석을 수행하고, 결과를 HDFS에 저장한 뒤 대시보드로 시각화하는 데이터 파이프라인입니다. HuggingFace 모델을 사용한 감성 분석과 키워드 기반 폴백 시스템을 구현했습니다.
 
-## 1. 핵심 개선 사항
+## 주요 기능
 
-- **설정 중앙화:** 모든 주요 설정(경로, 토픽, 모델 이름 등)을 `config/settings.py` 파일에서 관리하여 변경이 용이해졌습니다.
-- **테스트 도입:** `tests` 디렉토리를 추가하고 Airflow DAG 무결성 테스트를 도입하여 파이프라인의 안정성을 강화했습니다.
-- **코드 리팩토링:** 모든 스크립트가 중앙 설정 파일을 참조하도록 수정하여 코드의 일관성과 가독성을 높였습니다.
-- **파일 정리:** 불필요한 파일을 제거하고 `.gitignore`를 추가하여 버전 관리를 체계화했습니다.
+### 감성 분석
+- HuggingFace Transformers 모델을 우선 사용하여 높은 정확도 확보
+- 모델 오류 시 키워드 기반 분석으로 자동 전환
+- 최종 폴백으로 NEUTRAL 처리하여 시스템 안정성 보장
+
+### 다국어 지원
+- 정규표현식 패턴을 사용한 언어 감지 (한국어, 영어, 중국어, 일본어, 아랍어, 러시아어, 태국어)
+- 언어별 감성 분석 키워드 적용
+
+### 데이터 처리
+- Apache Spark Streaming으로 실시간 데이터 처리
+- Kafka를 통한 안정적인 메시지 전송
+- HDFS에 Parquet 형태로 데이터 저장
+
+### 시스템 운영
+- Docker Compose로 전체 인프라 관리
+- Airflow로 배치 작업 스케줄링
+- 중앙화된 설정 파일로 환경 관리
 
 ## 2. 아키텍처
 
 ```
-┌───────────────┐   ┌──────────┐   ┌───────────────────────────────────────────┐   ┌───────────────┐   ┌───────────────┐
-│               │   │          │   │                                           │   │               │   │               │
-│  Reddit API   ├─► │  Kafka   ├─► │      Spark Streaming (Language Detection) ├─► │ Parquet Files ├─► │   Dashboard   │
-│               │   │          │   │ (KoELECTRA for KO / DistilBERT for EN) │   │   (HDFS)      │   │  (Streamlit)  │
-│               │   │          │   │                                           │   │               │   │               │
-└───────────────┘   └──────────┘   └───────────────────────────────────────────┘   └───────────────┘   └───────────────┘
-
-# Airflow: 매일 리포트 생성, 매시간 데이터 품질 검증, 서비스 상태 모니터링 등 배치성 작업을 오케스트레이션합니다.
+Reddit API → Kafka → Spark Streaming → HDFS → Dashboard
+    ↓              ↓            ↓           ↓
+  데이터 수집    메시지 큐    감성 분석    저장소    시각화
+  (실시간)       (스트림)    (다국어)    (Parquet)  (Streamlit)
 ```
 
-- **데이터 수집/전송:** `PRAW`를 사용하여 Reddit API로부터 데이터를 수집하고 `Kafka`로 전송합니다. (`scripts/reddit_producer.py`)
-- **데이터 처리/분석:** `Spark Streaming`이 Kafka로부터 데이터를 소비하여 언어를 감지하고, 적절한 Hugging Face 모델로 감성 분석을 수행합니다. 결과는 `Parquet` 포맷으로 HDFS에 저장됩니다. (`scripts/sentiment_analyzer.py`)
-- **워크플로우 관리:** `Apache Airflow`가 일일 리포트 생성, 데이터 품질 검증, 서비스 상태 모니터링 DAG를 스케줄에 따라 실행합니다. (`dags/`)
-- **시각화:** `Streamlit`을 사용하여 분석된 데이터를 실시간으로 시각화합니다. (`dashboard.py`)
+**데이터 흐름:**
+1. **Reddit Producer** - Reddit API에서 게시글/댓글 수집
+2. **Kafka** - 실시간 데이터 스트림 전송
+3. **Spark Streaming** - 언어 감지 + 감성 분석 처리
+4. **HDFS** - 분석 결과를 Parquet 파일로 저장
+5. **Dashboard** - 실시간 감성 분석 결과 시각화
 
-## 3. 기술 스택
+**감성 분석 과정:**
+- HuggingFace 모델 우선 사용 → 실패시 키워드 기반 → 최종 NEUTRAL
 
-- **Orchestration:** Apache Airflow
-- **Containerization:** Docker, Docker Compose
-- **Message Queue:** Apache Kafka
-- **Data Processing:** Apache Spark (Spark Streaming & Batch)
-- **Data Lake Storage:** HDFS
-- **Language Detection:** fastText
-- **Sentiment Analysis:** Hugging Face Transformers (KoELECTRA, DistilBERT)
-- **Visualization:** Streamlit
-- **Testing:** Pytest (예정), Unittest
+**배치 작업 (Airflow):**
+- 일일 감성 분석 리포트 생성
+- 데이터 품질 검증
+- 서비스 상태 모니터링
 
-## 4. 프로젝트 구조
+## 기술 스택
+
+**데이터 처리**
+- Apache Spark (Streaming)
+- Apache Kafka 
+- HDFS
+
+**감성 분석**
+- HuggingFace Transformers
+- 정규표현식 기반 언어 감지
+- Pandas UDF
+
+**인프라 및 운영**
+- Docker & Docker Compose
+- Apache Airflow
+- Streamlit
+
+**개발 및 테스트**
+- Python 3.x
+- Unittest
+
+## 프로젝트 구조
 
 ```
 social_media_analysis/
-├── config/               # 중앙 설정 관리
-│   └── settings.py
-├── dags/                 # Airflow DAG 파일
+├── config/                     # 설정 파일
+│   ├── settings.py
+│   ├── logging_config.py
+│   └── timezone_utils.py
+├── dags/                       # Airflow DAG
 │   ├── daily_sentiment_report_dag.py
 │   ├── hourly_data_quality_dag.py
 │   └── daily_service_monitor_dag.py
-├── scripts/              # 핵심 로직 스크립트
+├── scripts/                    # 핵심 로직
 │   ├── reddit_producer.py
-│   ├── sentiment_analyzer.py
-│   └── ...
-├── tests/                # 테스트 코드
+│   ├── sentiment_analyzer_v2.py      # 메인 감성 분석기
+│   ├── advanced_sentiment_analyzer.py # HuggingFace 모델
+│   └── data_validator.py
+├── tests/                      
 │   └── test_dags.py
-├── .env                  # 환경 변수 설정 파일
-├── .gitignore            # 버전 관리 제외 파일 목록
-├── dashboard.py          # Streamlit 대시보드
-├── docker-compose.yml    # 서비스 및 인프라 정의
-├── Dockerfile            # Airflow 커스텀 이미지 빌드
-├── Dockerfile.spark      # Spark 커스텀 이미지 빌드
-├── requirements.txt      # Python 의존성 목록
-├── README.md             # 프로젝트 설명 (현재 파일)
-└── PROJECT_ANALYSIS.md   # 프로젝트 상세 분석 문서 (NEW)
+├── dashboard.py                # Streamlit 대시보드
+├── docker-compose.yml          
+├── Dockerfile                  
+├── Dockerfile.spark            
+├── requirements.txt            
+└── README.md                   
 ```
 
-## 5. 사용법
+## 실행 방법
 
-1.  **`.env` 파일 설정:**
-    - [Reddit 개발자 페이지](https://www.reddit.com/prefs/apps/)에서 'script' 타입의 앱을 생성합니다.
-    - `.env` 파일에 발급받은 `client_id`, `client_secret`, `username`, `password`, `user_agent`를 입력합니다.
+1. **환경 설정**
+   - [Reddit 개발자 페이지](https://www.reddit.com/prefs/apps/)에서 API 키 발급
+   - `.env` 파일 생성:
+   ```bash
+   REDDIT_CLIENT_ID=your_client_id
+   REDDIT_CLIENT_SECRET=your_client_secret
+   REDDIT_USERNAME=your_username
+   REDDIT_PASSWORD=your_password
+   REDDIT_USER_AGENT=your_app_name
+   ```
 
-2.  **서비스 실행:**
-    ```bash
-    docker-compose up -d --build
-    ```
+2. **실행**
+   ```bash
+   docker-compose up -d --build
+   ```
 
-3.  **서비스 확인:**
-    - **Airflow UI:** `http://localhost:8082` (ID/PW: admin/admin)
-    - **Spark Master UI:** `http://localhost:8080`
-    - **HDFS Namenode UI:** `http://localhost:9870`
-    - **Dashboard:** `http://localhost:8501`
+3. **서비스 접속**
+   - Airflow UI: `http://localhost:8082` (admin/admin)
+   - Spark UI: `http://localhost:8080`
+   - HDFS UI: `http://localhost:9870`
+   - Dashboard: `http://localhost:8501`
 
-4.  **테스트 실행 (선택 사항):**
-    - Airflow 컨테이너에 접속하여 테스트를 실행할 수 있습니다.
-    ```bash
-    docker exec -it airflow-webserver bash
-    python -m unittest discover /opt/airflow/tests
-    ```
+4. **종료**
+   ```bash
+   docker-compose down
+   ```
 
-## 6. 종료 방법
+## 테스트
 
 ```bash
-docker-compose down
+docker exec -it airflow-webserver bash
+python -m unittest discover /opt/airflow/tests
 ```
