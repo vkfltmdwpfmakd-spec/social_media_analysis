@@ -28,8 +28,8 @@ from pyspark.sql.functions import (
 from pyspark.sql.types import StructType, StructField, StringType, TimestampType, FloatType
 import pandas as pd
 
-# 고도화된 감성 분석 모듈 import (UDF 호환성을 위해 주석 처리)
-# from advanced_sentiment_analyzer import get_sentiment_analyzer, analyze_sentiment_batch_sync
+# 고도화된 감성 분석 모듈 import (폴백 시스템 활성화)
+from advanced_sentiment_analyzer import get_sentiment_analyzer, analyze_sentiment_batch_sync
 
 # 애플리케이션 설정
 APP_NAME = "AdvancedSentimentAnalyzer_v2"
@@ -92,7 +92,7 @@ def detect_language_optimized(texts: pd.Series) -> pd.Series:
 
 @pandas_udf(StringType())
 def analyze_sentiment_advanced(texts: pd.Series) -> pd.Series:
-    """고도화된 감성 분석 UDF"""
+    """고도화된 감성 분석 UDF - 2단계 폴백 시스템"""
     
     try:
         # 텍스트 전처리
@@ -105,11 +105,16 @@ def analyze_sentiment_advanced(texts: pd.Series) -> pd.Series:
                 clean_text = text.strip()[:1000]  # 1000자 제한
                 clean_texts.append(clean_text)
         
-        # 간단한 키워드 기반 감성 분석 (로컬 실행)
+        # 고급 폴백 시스템 사용 (HuggingFace → 키워드 기반)
         try:
+            sentiment_labels = analyze_sentiment_batch_sync(clean_texts, language='auto')
+            return pd.Series(sentiment_labels)
+            
+        except Exception as advanced_error:
+            # 고급 분석 실패 시 간단한 키워드 기반 폴백
             sentiment_labels = []
             
-            # 간단한 키워드 기반 감성 분석
+            # 간단한 키워드 기반 감성 분석 (최종 폴백)
             positive_keywords = ['good', 'great', 'excellent', 'amazing', 'wonderful', 'love', 'best', 'perfect', 'awesome', '좋', '최고', '훌륭', '멋진', '완벽']
             negative_keywords = ['bad', 'terrible', 'awful', 'worst', 'hate', 'horrible', 'disgusting', '나쁘', '최악', '끔찍', '혐오']
             
@@ -131,13 +136,8 @@ def analyze_sentiment_advanced(texts: pd.Series) -> pd.Series:
             
             return pd.Series(sentiment_labels)
             
-        except Exception as local_error:
-            # 로컬 감성 분석 실패 (로깅 제거)
-            # 최종 폴백: 모두 NEUTRAL
-            return pd.Series(["NEUTRAL"] * len(texts))
-            
     except Exception as e:
-        # 감성 분석 UDF 전체 실패 (로깅 제거)
+        # 감성 분석 UDF 전체 실패
         # 최종 폴백: 모두 NEUTRAL
         return pd.Series(["NEUTRAL"] * len(texts))
 
@@ -147,8 +147,8 @@ class SentimentAnalyzerV2:
     def __init__(self):
         self.logger = get_logger(__name__)
         self.spark = None
-        # 간단한 키워드 기반 감성분석으로 변경 (UDF 내에서 직접 처리)
-        self.sentiment_analyzer = None
+        # 고도화된 감성 분석기 초기화 (2단계 폴백 시스템)
+        self.sentiment_analyzer = get_sentiment_analyzer()
         self.executor = ThreadPoolExecutor(max_workers=4)  # 비동기 처리용
         
         # 성능 메트릭
