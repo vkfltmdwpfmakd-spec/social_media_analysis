@@ -91,3 +91,8 @@ unittests.cfg
 # IDEs
 .idea/
 .vscode/
+
+# Development & Analysis Documents (내부 개발 문서)
+PERFORMANCE_REPORT.md
+PROJECT_ANALYSIS.md
+CODE_EXECUTION_GUIDE.md
