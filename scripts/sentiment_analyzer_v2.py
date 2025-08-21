@@ -14,23 +14,27 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Any
 
-# 프로젝트 모듈 import
+# 프로젝트 설정 모듈 import - Docker 환경에서는 폴백 방식 사용
 try:
     from config import settings
     from config.logging_config import get_logger
 except ImportError:
-    # Spark 환경에서의 폴백 설정
+    # Spark 컨테이너 환경에서의 폴백 설정
+    # 외부 config 모듈이 없을 때를 대비한 기본 설정
     import os
     
-    # 기본 설정 클래스 정의
+    # 환경변수 기반 기본 설정 클래스
     class DefaultSettings:
         ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
         LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
+        # API 키들 - 실제 운영시에는 Docker Compose에서 환경변수로 주입
         OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
         HUGGINGFACE_API_KEY = os.getenv('HUGGINGFACE_API_KEY', '')
+        # API 사용량 제한 설정
         MAX_API_REQUESTS_PER_MINUTE = int(os.getenv('MAX_API_REQUESTS_PER_MINUTE', '50'))
         API_TIMEOUT_SECONDS = int(os.getenv('API_TIMEOUT_SECONDS', '10'))
-        SPARK_BATCH_INTERVAL = int(os.getenv('SPARK_BATCH_INTERVAL', '30'))
+        # Spark 스트리밍 설정
+        SPARK_BATCH_INTERVAL = int(os.getenv('SPARK_BATCH_INTERVAL', '30'))  # 30초마다 배치 처리
         MAX_FILES_PER_LOAD = int(os.getenv('MAX_FILES_PER_LOAD', '15'))
         PARQUET_COMPRESSION = os.getenv('PARQUET_COMPRESSION', 'snappy')
         DASHBOARD_REFRESH_SECONDS = int(os.getenv('DASHBOARD_REFRESH_SECONDS', '30'))

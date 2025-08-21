@@ -1,30 +1,32 @@
 import os
-import praw
+import praw  # Reddit API 라이브러리
 import json
 from kafka import KafkaProducer
 import logging
 import time
 import sys
 import os
+
+# 프로젝트 루트 경로를 Python path에 추가 (config 모듈 접근용)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from config import settings
 
-# Logging 설정
+# 로깅 설정 - Reddit 데이터 수집 상태 모니터링용
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
-# Kafka Producer 설정 (settings.py에서 가져오기)
+# Kafka Producer 초기화 - 수집된 데이터를 Kafka 토픽으로 전송
 try:
     producer = KafkaProducer(
-        bootstrap_servers=[settings.KAFKA_BROKER],
-        value_serializer=lambda v: json.dumps(v).encode('utf-8')
+        bootstrap_servers=[settings.KAFKA_BROKER],  # Kafka 브로커 주소
+        value_serializer=lambda v: json.dumps(v).encode('utf-8')  # JSON 직렬화
     )
     logging.info("Kafka Producer가 성공적으로 연결되었습니다.")
 except Exception as e:
     logging.error(f"Kafka Producer 연결 실패: {e}")
     exit()
 
-# Reddit API 설정
+# Reddit API 인증 정보 - 환경변수에서 가져오기 (보안상 하드코딩 방지)
 REDDIT_CLIENT_ID = os.getenv('REDDIT_CLIENT_ID')
 REDDIT_CLIENT_SECRET = os.getenv('REDDIT_CLIENT_SECRET')
 REDDIT_USERNAME = os.getenv('REDDIT_USERNAME')

@@ -1,19 +1,26 @@
 """
 중앙 설정 파일 - 보안 강화 버전
-- 환경변수 기반 설정으로 보안성 향상
-- 환경별 설정 분리 (development, production)
-- 민감한 정보는 환경변수로 관리
+
+이 파일은 전체 프로젝트의 설정을 관리합니다:
+- 환경변수 기반으로 보안 정보 관리 (API 키, 데이터베이스 정보 등)
+- 개발/운영 환경별 설정 분리로 안전한 배포
+- Docker 컨테이너 환경에서의 설정 주입 지원
 """
 
 import os
 from typing import Optional
 
 class SecurityConfig:
-    """보안 관련 설정 관리"""
+    """
+    보안 관련 설정 관리 클래스
+    
+    환경변수를 통한 안전한 설정 값 관리를 담당합니다.
+    하드코딩된 시크릿 정보를 방지하고 환경별 설정을 분리합니다.
+    """
     
     @staticmethod
     def get_environment() -> str:
-        """현재 실행 환경 반환"""
+        """현재 실행 환경 반환 (development/production)"""
         return os.getenv('ENVIRONMENT', 'development').lower()
     
     @staticmethod
@@ -23,7 +30,14 @@ class SecurityConfig:
     
     @staticmethod
     def get_secure_value(key: str, default: Optional[str] = None, required: bool = False) -> str:
-        """환경변수에서 안전하게 값 가져오기"""
+        """
+        환경변수에서 안전하게 값 가져오기
+        
+        Args:
+            key: 환경변수 키
+            default: 기본값 (없으면 None)
+            required: 필수 여부 (True시 값이 없으면 에러)
+        """
         value = os.getenv(key, default)
         if required and not value:
             raise ValueError(f"필수 환경변수 {key}가 설정되지 않았습니다.")
