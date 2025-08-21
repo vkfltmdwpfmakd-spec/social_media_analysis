@@ -5,7 +5,9 @@
       "Bash(docker logs:*)",
       "Bash(docker exec:*)",
       "mcp__playwright__browser_navigate",
-      "mcp__playwright__browser_press_key"
+      "mcp__playwright__browser_press_key",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(docker-compose:*)"
     ],
     "deny": [],
     "ask": []

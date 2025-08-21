@@ -23,7 +23,7 @@ with DAG(
 
     run_service_check = BashOperator(
         task_id='run_service_health_check',
-        bash_command=f"""
+        bash_command="""
             python /opt/airflow/scripts/service_health_check.py
         """,
         dag=dag,

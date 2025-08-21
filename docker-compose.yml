@@ -128,6 +128,21 @@ services:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark-master:7077
 
+  spark-worker-2:
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
+    container_name: spark-worker-2
+    networks:
+      - social_media_network
+    depends_on:
+      - spark-master
+    volumes:
+      - ./scripts:/opt/bitnami/spark/scripts
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+
   reddit-producer:
     build: .
     container_name: reddit-producer
@@ -206,13 +221,16 @@ services:
       # 대시보드 설정
       - DASHBOARD_REFRESH_SECONDS=30
 
-      - PYTHONPATH=/opt/bitnami/spark
+      - PYTHONPATH=/opt/bitnami/spark:/opt/bitnami/spark/scripts:/opt/bitnami/spark/config
       
     command: >
       /opt/bitnami/spark/bin/spark-submit
       --master spark://spark-master:7077
       --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1
-      --py-files /opt/bitnami/spark/scripts/advanced_sentiment_analyzer.py,/opt/bitnami/spark/config/settings.py,/opt/bitnami/spark/config/logging_config.py
+      --conf spark.driver.extraJavaOptions="-Duser.timezone=UTC"
+      --conf spark.executor.extraJavaOptions="-Duser.timezone=UTC"
+      --total-executor-cores 12
+      --py-files /opt/bitnami/spark/scripts/advanced_sentiment_analyzer.py
       /opt/bitnami/spark/scripts/sentiment_analyzer_v2.py
     restart: always
     deploy:
@@ -267,6 +285,7 @@ services:
     volumes:
       - ./:/opt/airflow
       - airflow_data:/opt/airflow/logs
+      - /var/run/docker.sock:/var/run/docker.sock
     command: airflow scheduler
 
   dashboard:

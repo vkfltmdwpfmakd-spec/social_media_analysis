@@ -24,9 +24,29 @@ import sys
 import os
 
 # 프로젝트 설정 import
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import settings
-from config.logging_config import get_logger
+try:
+    from config import settings
+    from config.logging_config import get_logger
+except ImportError:
+    # Spark 환경에서의 폴백 설정
+    import sys
+    import os
+    
+    # 기본 설정 클래스 정의
+    class DefaultSettings:
+        ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
+        LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
+        OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+        HUGGINGFACE_API_KEY = os.getenv('HUGGINGFACE_API_KEY', '')
+        MAX_API_REQUESTS_PER_MINUTE = int(os.getenv('MAX_API_REQUESTS_PER_MINUTE', '50'))
+        API_TIMEOUT_SECONDS = int(os.getenv('API_TIMEOUT_SECONDS', '10'))
+    
+    settings = DefaultSettings()
+    
+    def get_logger(name):
+        import logging
+        logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL, logging.INFO))
+        return logging.getLogger(name)
 
 # --- Hugging Face 파이프라인 전역 변수 ---
 # Spark UDF에서 사용 시, 각 Executor에서 한 번만 초기화되도록 전역으로 관리

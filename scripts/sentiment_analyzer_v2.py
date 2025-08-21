@@ -15,9 +15,32 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Any
 
 # 프로젝트 모듈 import
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import settings
-from config.logging_config import get_logger
+try:
+    from config import settings
+    from config.logging_config import get_logger
+except ImportError:
+    # Spark 환경에서의 폴백 설정
+    import os
+    
+    # 기본 설정 클래스 정의
+    class DefaultSettings:
+        ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
+        LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
+        OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+        HUGGINGFACE_API_KEY = os.getenv('HUGGINGFACE_API_KEY', '')
+        MAX_API_REQUESTS_PER_MINUTE = int(os.getenv('MAX_API_REQUESTS_PER_MINUTE', '50'))
+        API_TIMEOUT_SECONDS = int(os.getenv('API_TIMEOUT_SECONDS', '10'))
+        SPARK_BATCH_INTERVAL = int(os.getenv('SPARK_BATCH_INTERVAL', '30'))
+        MAX_FILES_PER_LOAD = int(os.getenv('MAX_FILES_PER_LOAD', '15'))
+        PARQUET_COMPRESSION = os.getenv('PARQUET_COMPRESSION', 'snappy')
+        DASHBOARD_REFRESH_SECONDS = int(os.getenv('DASHBOARD_REFRESH_SECONDS', '30'))
+    
+    settings = DefaultSettings()
+    
+    def get_logger(name):
+        import logging
+        logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL, logging.INFO))
+        return logging.getLogger(name)
 
 # PySpark 관련 import
 from pyspark.sql import SparkSession

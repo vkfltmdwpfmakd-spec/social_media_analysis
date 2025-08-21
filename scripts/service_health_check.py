@@ -6,9 +6,33 @@ from kafka.errors import NoBrokersAvailable
 from hdfs import InsecureClient
 import os
 
-# 프로젝트 루트 경로를 sys.path에 추가
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import settings
+# 프로젝트 모듈 import
+try:
+    from config import settings
+    from config.logging_config import get_logger
+except ImportError:
+    # Spark 환경에서의 폴백 설정
+    class DefaultSettings:
+        ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
+        LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
+        
+        # Kafka 설정
+        KAFKA_BROKER = os.getenv('KAFKA_BROKER', 'kafka:9092')
+        
+        # Spark 설정
+        SPARK_MASTER_HOST = os.getenv('SPARK_MASTER_HOST', 'spark-master')
+        SPARK_MASTER_PORT = int(os.getenv('SPARK_MASTER_PORT', '7077'))
+        
+        # HDFS 설정
+        HDFS_NAMENODE_HOST = os.getenv('HDFS_NAMENODE_HOST', 'namenode')
+        HDFS_WEB_PORT = int(os.getenv('HDFS_WEB_PORT', '9870'))
+        HDFS_WEB_URL = f"http://{HDFS_NAMENODE_HOST}:{HDFS_WEB_PORT}"
+    
+    settings = DefaultSettings()
+    
+    def get_logger(name):
+        logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL, logging.INFO))
+        return logging.getLogger(name)
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
@@ -17,13 +41,10 @@ def check_kafka_health():
     logging.info("Kafka 브로커 상태 확인 중...")
     try:
         admin_client = KafkaAdminClient(bootstrap_servers=settings.KAFKA_BROKER, request_timeout_ms=5000)
-        brokers = admin_client.bootstrap_connected()
-        if brokers:
-            logging.info("Kafka 브로커 연결 성공.")
-            return True
-        else:
-            logging.error("Kafka 브로커에 연결할 수 없습니다.")
-            return False
+        # 더 간단한 연결 테스트 - list_topics() 사용
+        topics = admin_client.list_topics()
+        logging.info(f"Kafka 브로커 연결 성공. {len(topics)} 개 토픽 발견.")
+        return True
     except NoBrokersAvailable:
         logging.error(f"Kafka 브로커({settings.KAFKA_BROKER})를 찾을 수 없습니다.")
         return False
