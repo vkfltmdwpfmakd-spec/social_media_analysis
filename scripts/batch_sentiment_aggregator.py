@@ -59,9 +59,9 @@ def aggregate_sentiment_data(spark):
 
         sentiment_score_numeric_df = df_filtered.withColumn(
             "sentiment_numeric",
-            when(col("sentiment_label") == "positive", 1.0)
-            .when(col("sentiment_label") == "neutral", 0.0)
-            .when(col("sentiment_label") == "negative", -1.0)
+            when(lower(col("sentiment_label")) == "positive", 1.0)
+            .when(lower(col("sentiment_label")) == "neutral", 0.0)
+            .when(lower(col("sentiment_label")) == "negative", -1.0)
             .otherwise(0.0)
         )
         avg_sentiment_df = sentiment_score_numeric_df.agg(avg("sentiment_numeric").alias("average_sentiment_score"))

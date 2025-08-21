@@ -79,6 +79,15 @@ if not report_df.empty:
             st.metric("리포트 생성 시간 (KST)", kst_time.strftime('%Y-%m-%d %H:%M:%S'))
         with col2:
             st.metric("평균 감성 점수", f"{latest_report['average_sentiment_score']:.4f}")
+        
+        with st.expander("ℹ️ 평균 감성 점수 산정 기준 보기"):
+            st.markdown("""
+            - **Positive:** +1점
+            - **Negative:** -1점
+            - **Neutral (또는 기타):** 0점
+            
+            위 기준으로 지난 24시간 동안 수집된 모든 데이터의 감성 점수 평균을 계산합니다.
+            """)
 
         st.subheader("가장 많이 언급된 키워드 Top 10")
         try:
@@ -113,7 +122,7 @@ if not latest_data_df.empty:
     with col_kpi4:
         st.metric(label="기타 언어 데이터", value=f"{len(df_other):,} 건")
 
-    tab1, tab2, tab3 = st.tabs([f"🇰🇷 한국어 ({len(df_korean)}건)", f"🇬🇧 영어 ({len(df_english)}건)", f"🌐 기타 ({len(df_other)}건)"])
+    tab1, tab2, tab3 = st.tabs([f"🇰🇷 한국어 ({len(df_korean)}건)", f"🇺🇸 영어 ({len(df_english)}건)", f"🌐 기타 ({len(df_other)}건)"])
 
     def display_language_dashboard(tab, df, lang_name):
         with tab:
